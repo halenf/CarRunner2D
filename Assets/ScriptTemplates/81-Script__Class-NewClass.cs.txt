@@ -1,0 +1,18 @@
+///<summary>
+/// Author:
+///
+///
+///
+///</summary>
+
+using UnityEngine;
+
+namespace CarRunner2D
+{
+    #ROOTNAMESPACEBEGIN#
+    public class #SCRIPTNAME#
+    {
+        #NOTRIM#
+    }
+    #ROOTNAMESPACEEND#
+}
