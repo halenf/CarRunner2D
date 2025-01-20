@@ -13,59 +13,75 @@ namespace CarRunner2D
 	public class CarController : MonoBehaviour
 	{
 		// references
-		[SerializeField] private Rigidbody2D m_frontWheel;
-		[SerializeField] private Rigidbody2D m_backWheel;
+		[SerializeField] private Wheel m_frontWheel;
+		[SerializeField] private Wheel m_backWheel;
 
 		private Rigidbody2D m_carBody;
 
-		[Space]
-
-		[SerializeField, Min(0)] private float m_acceleration;
+        [Header("Driving")]
 		[SerializeField, Min(0)] private float m_maxDriveSpeed;
-		[SerializeField, Min(0)] private float m_spinSpeed;
+		[SerializeField, Min(0)] private float m_acceleration;
+        [SerializeField, Min(0)] private float m_deccelerationFactor;
 
-		// movement values
-		private float m_targetWheelSpeed;
-		private float m_currentAcceleration;
+        [Header("Car Body Spin")]
+		[SerializeField, Min(0)] private float m_bodySpinAcceleration;
+        [SerializeField, Min(0)] private float m_maxBodySpinSpeed;
 
 		// inputs values
-		private bool m_isAccelerating;
-		private bool m_isBraking;
-		private float m_spinDirection;
+		private bool m_isAccelerating = false;
+		private bool m_isBraking = false;
+		private float m_spinDirection = 0;
 
         private void Awake()
         {
             m_carBody = GetComponent<Rigidbody2D>();
         }
 
+        private void Start()
+        {
+            m_frontWheel.SetMaxSpeed(m_maxDriveSpeed);
+            m_backWheel.SetMaxSpeed(m_maxDriveSpeed);
+        }
+
         private void FixedUpdate()
         {
-			// wheel torque
-			if (m_isAccelerating)
-			{
-				m_currentAcceleration += m_acceleration * Time.deltaTime;
-				
-				//float 
-				float frontTorque = m_acceleration * m_maxDriveSpeed / m_frontWheel.angularVelocity;
-				m_frontWheel.AddTorque(-frontTorque * Time.fixedDeltaTime);
-
-				float backTorque = m_acceleration * m_maxDriveSpeed / m_backWheel.angularVelocity;
-				m_backWheel.AddTorque(-backTorque * Time.fixedDeltaTime);
-			}
+            // reduce speed when braking
             if (m_isBraking)
             {
-				m_frontWheel.angularVelocity = 0;
-				m_backWheel.angularVelocity = 0;
+                float decceleration = m_deccelerationFactor * Time.fixedDeltaTime;
+                m_frontWheel.Speed = Mathf.MoveTowards(m_frontWheel.Speed, 0, decceleration);
+                m_backWheel.Speed = Mathf.MoveTowards(m_backWheel.Speed, 0, decceleration);   
+                
+                // lock wheels at some certain value
+                /*
+                if (Mathf.Abs(m_frontWheel.Speed) < decceleration)
+                    m_frontWheel.IsLocked = true;
+                if (Mathf.Abs(m_backWheel.Speed) < decceleration)
+                    m_backWheel.IsLocked = true;
+                */
             }
 
-            // car body spin
-            m_carBody.AddTorque(m_spinDirection * m_spinSpeed * Time.fixedDeltaTime);
+            // increase speed when accelerating
+            else if (m_isAccelerating)
+            {
+                float acceleration = -m_acceleration * Time.fixedDeltaTime;
+                m_frontWheel.Speed += acceleration;
+                m_backWheel.Speed += acceleration;
+            }
+
+            /// car body spin
+            if (m_spinDirection != 0)
+            {
+                float carBodySpinSpeed = m_carBody.angularVelocity + m_spinDirection * m_bodySpinAcceleration * Time.fixedDeltaTime;
+                carBodySpinSpeed = Mathf.Clamp(carBodySpinSpeed, -m_maxBodySpinSpeed, m_maxBodySpinSpeed);
+                m_carBody.angularVelocity = carBodySpinSpeed;
+            }
         }
 
         public void GetAccelerating(InputAction.CallbackContext context)
         {
-			if (context.performed)
-				m_isAccelerating = true;
+            if (context.performed)
+                m_isAccelerating = true;
 			if (context.canceled)
 				m_isAccelerating = false;
         }
