@@ -21,7 +21,7 @@ namespace CarRunner2D
         [Header("Driving")]
 		[SerializeField, Min(0)] private float m_maxDriveSpeed;
 		[SerializeField, Min(0)] private float m_acceleration;
-        [SerializeField, Min(0)] private float m_deccelerationFactor;
+        [SerializeField, Min(0)] private float m_decceleration;
 
         [Header("Car Body Spin")]
 		[SerializeField, Min(0)] private float m_bodySpinAcceleration;
@@ -48,7 +48,7 @@ namespace CarRunner2D
             // reduce speed when braking
             if (m_isBraking)
             {
-                float decceleration = m_deccelerationFactor * Time.fixedDeltaTime;
+                float decceleration = m_decceleration * Time.fixedDeltaTime;
                 m_frontWheel.Speed = Mathf.MoveTowards(m_frontWheel.Speed, 0, decceleration);
                 m_backWheel.Speed = Mathf.MoveTowards(m_backWheel.Speed, 0, decceleration);   
                 
