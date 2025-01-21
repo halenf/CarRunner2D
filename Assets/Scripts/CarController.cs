@@ -22,10 +22,11 @@ namespace CarRunner2D
 		[SerializeField, Min(0)] private float m_maxDriveSpeed;
 		[SerializeField, Min(0)] private float m_acceleration;
         [SerializeField, Min(0)] private float m_decceleration;
+        [SerializeField, Range(0, 1)] private float m_inAirAccelerationFactor;
 
         [Header("Car Body Spin")]
-		[SerializeField, Min(0)] private float m_bodySpinAcceleration;
         [SerializeField, Min(0)] private float m_maxBodySpinSpeed;
+		[SerializeField, Min(0)] private float m_bodySpinAcceleration;
 
 		// inputs values
 		private bool m_isAccelerating = false;
@@ -64,9 +65,18 @@ namespace CarRunner2D
             // increase speed when accelerating
             else if (m_isAccelerating)
             {
-                float acceleration = -m_acceleration * Time.fixedDeltaTime;
-                m_frontWheel.Speed += acceleration;
-                m_backWheel.Speed += acceleration;
+                float frontAcceleration;
+                float backAcceleration;
+                frontAcceleration = backAcceleration = -m_acceleration * Time.fixedDeltaTime;
+
+                // if wheel is not touching the ground, apply a different amount of acceleration
+                if (!m_frontWheel.IsTouchingGround())
+                    frontAcceleration *= m_inAirAccelerationFactor;
+                if (!m_backWheel.IsTouchingGround())
+                    backAcceleration *= m_inAirAccelerationFactor;
+
+                m_frontWheel.Speed += frontAcceleration;
+                m_backWheel.Speed += backAcceleration;
             }
 
             /// car body spin
