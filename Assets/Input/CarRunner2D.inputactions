@@ -606,6 +606,34 @@
                     "isPartOfComposite": false
                 }
             ]
+        },
+        {
+            "name": "Editor",
+            "id": "949b11e8-5e1b-4ff7-b6f4-ebfd02a949ef",
+            "actions": [
+                {
+                    "name": "Left Click",
+                    "type": "Button",
+                    "id": "96afd22f-813e-4baf-9f98-743f6220c16a",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                }
+            ],
+            "bindings": [
+                {
+                    "name": "",
+                    "id": "005111ea-7cf6-4983-be07-c94d34d5a28e",
+                    "path": "<Mouse>/leftButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": ";Keyboard&Mouse",
+                    "action": "Left Click",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                }
+            ]
         }
     ],
     "controlSchemes": [
