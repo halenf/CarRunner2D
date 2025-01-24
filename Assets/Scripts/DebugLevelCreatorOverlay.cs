@@ -43,6 +43,12 @@ namespace CarRunner2D
                 }
             }
 
+            // show if there is a currently selected point
+            if (DebugLevelCreator.Instance.SelectedPoint == -1)
+                EGL.LabelField("Selected Point Id: null.");
+            else                         
+                EGL.LabelField("Selected Point Id: " + DebugLevelCreator.Instance.SelectedPoint.ToString());
+
             // create buttons
             if (GUILayout.Button("Create Point"))
             {
