@@ -8,6 +8,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
+using System;
 
 namespace CarRunner2D
 {
@@ -40,7 +41,7 @@ namespace CarRunner2D
 			// setup Point Container
 			if (!m_pointContainer)
 			{
-				m_pointContainer = new GameObject("Point Container").transform;
+				CreatePointContainer();
 			}
 
 			// remove before adding to prevent adding more than once
@@ -49,17 +50,30 @@ namespace CarRunner2D
 
 			Debug.Log(name + " was initialised!");
 		}
-#endregion
+		#endregion
 
+		// Level Point object Tag
+		private string m_levelPointTag;
+		public string LevelPointTag => m_levelPointTag;
+
+		// container for Level Point GameObjects
 		private Transform m_pointContainer;
 
+		// currently selected Level Point Id
 		private int m_selectedPoint;
 		public int SelectedPoint => m_selectedPoint;
 
+		// List of all Level Point Transforms
         private List<Transform> m_points;
 
         private void Update()
-        {
+        {		
+			// if point container has been deleted
+			if (m_pointContainer == null)
+            {
+				CreatePointContainer();
+            }
+			
 			if (m_pointContainer.childCount != m_points.Count)
 			{
 				// DEBUG
@@ -86,39 +100,34 @@ namespace CarRunner2D
 			GameObject selection = Selection.activeGameObject;
 			if (selection.CompareTag("LevelPoint"))
 			{
-				int pointId = int.Parse(selection.name[selection.name.Length - 1].ToString());
-				SelectPoint(pointId);
-				return;
+				m_selectedPoint = int.Parse(selection.name[selection.name.Length - 1].ToString());
+				Debug.Log("Selected point Id: " + m_selectedPoint.ToString() +
+				" at position: " + ((Vector2)m_points[m_selectedPoint].position).ToString());
 			}
-			InvalidSelection();
+			else
+				m_selectedPoint = -1;
 		}
 
 		public void CreatePoint()
         {
-			Camera sceneCamera = SceneView.lastActiveSceneView.camera;
 			// put the point in the centre of the screen
+			Camera sceneCamera = SceneView.lastActiveSceneView.camera;
 			Vector3 position = sceneCamera.ViewportToWorldPoint(new Vector2(0.5f, 0.5f));
 			position.z = 0;
 
 			// create the new point in the scene
-			GameObject newPoint = new GameObject("LevelPoint");
+			m_selectedPoint = m_points.Count;
+			GameObject newPoint = new GameObject("Point " + m_selectedPoint.ToString());
 			newPoint.transform.SetParent(m_pointContainer);
 			
 			// add point details
 			newPoint.transform.position = position;
-			newPoint.tag = "LevelPoint";
-
-			// set the point with a new Id
-			int pointId = m_points.Count;
-			newPoint.name = "Point " + pointId.ToString();
+			newPoint.tag = m_levelPointTag.ToString();
 
 			// add the new point to the list
 			m_points.Add(newPoint.transform);
 
-			// select the point after creation
-			SelectPoint(pointId);
-
-			Debug.Log("Created point at " + position.ToString() + " with Id " + pointId.ToString() + "!");
+			Debug.Log("Created point at " + position.ToString() + " with Id " + m_selectedPoint.ToString());
         }
 
 		public void DeletePoint()
@@ -136,7 +145,7 @@ namespace CarRunner2D
 				RenamePoints(m_selectedPoint);
 
 				// deselect the point
-				InvalidSelection();
+				m_selectedPoint = -1;
 			}
 			else
 				Debug.LogWarning("Tried to delete a point without one selected!");
@@ -170,22 +179,25 @@ namespace CarRunner2D
 			m_points.Clear();
 
 			// deselect any point and reset the tools canvas
-			InvalidSelection();
+			m_selectedPoint = -1;
 
 			Debug.Log("Deleted ALL points!");
         }
 
-		private void SelectPoint(int pointId)
+		private void CreatePointContainer()
         {
-			m_selectedPoint = pointId;
-
-			Debug.Log("Selected point Id: " + m_selectedPoint.ToString() +
-				" at position: " + ((Vector2)m_points[pointId].position).ToString());
+			m_pointContainer = new GameObject("Point Container").transform;
+			m_pointContainer.SetParent(transform);
 		}
 
-		private void InvalidSelection()
+		public void SetNewLevelPointTag(string tag)
         {
-			m_selectedPoint = -1;
+			m_levelPointTag = tag;
+			Debug.Log("The Level Point GameObject tag was changed to " + tag + "!");
+
+			// change the tags on all the existing level points
+			foreach (Transform t in m_pointContainer)
+				t.tag = tag;
         }
 
         private void OnDestroy()

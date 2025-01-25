@@ -18,9 +18,15 @@ namespace CarRunner2D
 	{
         const string k_Title = "Level Creator Tools";
 
+        private string m_currentTag;
+
         public DebugLevelCreatorOverlay()
         {
             RefreshPopup();
+
+            // get what the current tag is
+            if (DebugLevelCreator.Instance != null)
+                m_currentTag = DebugLevelCreator.Instance.LevelPointTag;
         }
         
         public override void OnGUI()
@@ -33,15 +39,24 @@ namespace CarRunner2D
                 // if it doesn't exist, then stop
                 if (creator == null)
                 {
-                    EGL.LabelField("No DebugLevelCreator static instance exists in this scene!");
+                    EGL.LabelField("No DebugLevelCreator exists in this scene!");
                     return;
                 }
                 // if it does exist but wasn't initialised, initialise the Instance
                 else
                 {
                     creator.Initialise();
+                    m_currentTag = creator.LevelPointTag;
                 }
             }
+
+            // Select the tag used for the level points
+            EGL.BeginHorizontal();
+            EGL.LabelField("Level Point object Tag");
+            m_currentTag = EGL.TagField(m_currentTag);
+            if (m_currentTag != DebugLevelCreator.Instance.LevelPointTag)
+                DebugLevelCreator.Instance.SetNewLevelPointTag(m_currentTag);
+            EGL.EndHorizontal();
 
             // show if there is a currently selected point
             if (DebugLevelCreator.Instance.SelectedPoint == -1)
