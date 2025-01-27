@@ -9,74 +9,147 @@ using UnityEngine;
 using UnityEditor;
 using UnityEditor.Overlays;
 
-using EGL = UnityEditor.EditorGUILayout;
-
 namespace CarRunner2D
 {
-    [Overlay(typeof(SceneView), k_Title)]
+    using EGUIL = EditorGUILayout;
+    using GUIL = GUILayout;
+    using GUIC = GUIContent;
+
+    //[Icon("Assets/Editor/WheelInfo/wheel.png")]
 	public class DebugLevelCreatorOverlay : IMGUIOverlay
 	{
-        const string k_Title = "Level Creator Tools";
+        public const string k_Title = "Level Creator Tools";
+        private const int k_Spacing = 8;
 
-        private string m_currentTag;
+        private readonly DebugLevelCreator target;
 
-        public DebugLevelCreatorOverlay()
+        private string[] m_editModeNames;
+
+        public DebugLevelCreatorOverlay(DebugLevelCreator target)
         {
+            this.target = target;
+            displayName = k_Title;
+            m_editModeNames = System.Enum.GetNames(typeof(DebugLevelCreatorEditMode));
             RefreshPopup();
-
-            // get what the current tag is
-            if (DebugLevelCreator.Instance != null)
-                m_currentTag = DebugLevelCreator.Instance.LevelPointTag;
         }
         
         public override void OnGUI()
         {
-            if (DebugLevelCreator.Instance == null)
+            switch (target.EditMode)
             {
-                // if the instance is not set, try and find one in the scene
-                DebugLevelCreator creator = GameObject.FindAnyObjectByType<DebugLevelCreator>();
+                case DebugLevelCreatorEditMode.Menu:
+                    MenuGUI();
+                    break;
+                case DebugLevelCreatorEditMode.EditPoints:
+                    EditPointsGUI();
+                    BackButton(DebugLevelCreatorEditMode.Menu);
+                    break;
+                case DebugLevelCreatorEditMode.DisplayOptions:
+                    DisplayOptionsGUI();
+                    BackButton(DebugLevelCreatorEditMode.Menu);
+                    break;
 
-                // if it doesn't exist, then stop
-                if (creator == null)
-                {
-                    EGL.LabelField("No DebugLevelCreator exists in this scene!");
-                    return;
-                }
-                // if it does exist but wasn't initialised, initialise the Instance
-                else
-                {
-                    creator.Initialise();
-                    m_currentTag = creator.LevelPointTag;
-                }
             }
+        }
 
-            // Select the tag used for the level points
-            EGL.BeginHorizontal();
-            EGL.LabelField("Level Point object Tag");
-            m_currentTag = EGL.TagField(m_currentTag);
-            if (m_currentTag != DebugLevelCreator.Instance.LevelPointTag)
-                DebugLevelCreator.Instance.SetNewLevelPointTag(m_currentTag);
-            EGL.EndHorizontal();
+        private void BackButton(DebugLevelCreatorEditMode targetMode)
+        {
+            GUIL.Space(k_Spacing);
+            if (GUIL.Button(new GUIC("Back", "Go back to the previous menu")))
+            {
+                target.SetEditMode(targetMode);
+            }
+        }
 
-            // show if there is a currently selected point
-            if (DebugLevelCreator.Instance.SelectedPoint == -1)
-                EGL.LabelField("Selected Point Id: null.");
-            else                         
-                EGL.LabelField("Selected Point Id: " + DebugLevelCreator.Instance.SelectedPoint.ToString());
+        private void MenuGUI()
+        {
+            GUIL.Label("Main Menu", EditorStyles.boldLabel);
+            
+            for (int m = 1; m < m_editModeNames.Length; m++)
+            {
+                if (GUIL.Button(m_editModeNames[m]))
+                    target.SetEditMode((DebugLevelCreatorEditMode)m);
+            }
+        }
+
+        private void EditPointsGUI()
+        {
+            // Display the currently selected Level Point's Id
+            GUIL.Label(new GUIC("Selected Point Id:"), EditorStyles.boldLabel);
+
+            // add controls to change the selected point from the Overlay
+            // and display null if there is no selected point
+            EGUIL.BeginHorizontal();
+            if (GUIL.Button(new GUIC("<", "Select the previous Level Point")))
+            {
+                target.SelectPrevPoint();
+            }
+            GUIL.FlexibleSpace();
+            if (target.SelectedPoint == -1)
+                GUIL.Label(new GUIC("null"));
+            else
+                GUIL.Label(new GUIC(target.SelectedPoint.ToString()));
+            GUIL.FlexibleSpace();
+            if (GUIL.Button(new GUIC(">", "Select the next Level Point")))
+            {
+                target.SelectNextPoint();
+            }
+            EGUIL.EndHorizontal();
+
+            // level point editing
+            GUIL.Space(k_Spacing);
+            GUIL.Label(new GUIC("Editing Level Points"), EditorStyles.boldLabel); 
 
             // create buttons
-            if (GUILayout.Button("Create Point"))
+            if (GUIL.Button(new GUIC("Add New Point", "Adds a new Level Point to the end of the list.")))
             {
-                DebugLevelCreator.Instance.CreatePoint();
+                target.NewPoint_PushBack();
             }
-            if (GUILayout.Button("Delete Selected Point"))
+            if (GUIL.Button(new GUIC("Insert New Point Here", "Adds a new Level Point at the selected index, then increments the index of all following Level Points.")))
             {
-                DebugLevelCreator.Instance.DeletePoint();
+                target.NewPoint_AtSelected();
             }
-            if (GUILayout.Button("Delete ALL Points"))
+            if (GUIL.Button(new GUIC("Insert New Point After", "Adds a new Level Point after the selected index, then increments the index of all following Level Points.")))
             {
-                DebugLevelCreator.Instance.ClearPoints();
+                target.NewPoint_AfterSelected();
             }
+            if (GUIL.Button(new GUIC("Delete Selected Point", "Removes the selected Level Point from the list.")))
+            {
+                target.DeletePoint();
+            }
+            if (GUIL.Button(new GUIC("Delete ALL Points", "Removes ALL Level Points from the list.")))
+            {
+                target.ClearPoints();
+            }
+            if (GUIL.Button(new GUIC("Rename Point Objects", "If the name of any of the Level Point Game Objects is incorrect, press this. If the names are already correct, this will do nothing.")))
+            {
+                target.RenamePoints();
+            }
+            if (GUIL.Button(new GUIC("Reorder Point Objects", "If the order of the Level Point Game Objects in the Point Container is incorrect, press this. If the order is already correct, this will do nothing.")))
+            {
+                target.OrderLevelPointTransforms();
+            }
+        }
+
+        private void DisplayOptionsGUI()
+        {
+            GUIL.Label(new GUIC("Display Options"), EditorStyles.boldLabel);
+
+            float newPointRadius = Mathf.Clamp01(EGUIL.FloatField(new GUIC("Radius of drawn points", "Set the size of drawn Level Points."), target.DisplayOptions.pointRadius));
+            if (newPointRadius != target.DisplayOptions.pointRadius)
+                target.DisplayOptions.pointRadius = newPointRadius;
+
+            Color newPointColour = EGUIL.ColorField(new GUIC("Point Colour", "Set the colour of drawn Level Points"), target.DisplayOptions.pointColour);
+            if (newPointColour != target.DisplayOptions.pointColour)
+                target.DisplayOptions.pointColour = newPointColour;
+
+            Color newLineColour = EGUIL.ColorField(new GUIC("Line Colour", "Set the colour of lines drawn between connected Level Points"), target.DisplayOptions.lineColour);
+            if (newLineColour != target.DisplayOptions.lineColour)
+                target.DisplayOptions.lineColour = newLineColour;
+
+            // reset display options
+            if (GUIL.Button(new GUIC("Reset Display Options", "Reset the Display Options back to their default values.")))
+                target.DisplayOptions.Reset();
         }
     }
 }

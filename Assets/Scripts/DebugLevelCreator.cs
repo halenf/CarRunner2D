@@ -8,53 +8,39 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
-using System;
+using UnityEditor.Overlays;
 
 namespace CarRunner2D
 {
-	[ExecuteInEditMode]
+    public enum DebugLevelCreatorEditMode
+    {
+        Menu,
+        EditPoints,
+        DisplayOptions
+    }
+
+    [ExecuteInEditMode, DisallowMultipleComponent]
+	[AddComponentMenu("")] // removes this from the menu
 	public class DebugLevelCreator : MonoBehaviour
 	{
-        #region Singleton
 		public static DebugLevelCreator Instance;
+        public const string k_LevelPointTag = "LevelPoint";
 
-        private void Awake()
-        {
-			Initialise();
-        }
+		private Overlay m_overlay;
 
-		[ContextMenu("Initialise")]
-		public void Initialise()
-        {
-			// create singleton
-			if (Instance && Instance != this)
+		private DebugLevelCreatorEditMode m_editMode = DebugLevelCreatorEditMode.Menu;
+		public DebugLevelCreatorEditMode EditMode => m_editMode;
+
+		private DebugLevelCreatorDisplayOptions m_displayOptions;
+		public DebugLevelCreatorDisplayOptions DisplayOptions
+		{
+			get
 			{
-				DestroyImmediate(gameObject);
+				if (m_displayOptions == null)
+					m_displayOptions = new DebugLevelCreatorDisplayOptions();
+				return m_displayOptions;
 			}
-			else
-			{
-				Instance = this;
-				if (Application.isPlaying)
-					DontDestroyOnLoad(gameObject);
-			}
-
-			// setup Point Container
-			if (!m_pointContainer)
-			{
-				CreatePointContainer();
-			}
-
-			// remove before adding to prevent adding more than once
-			Selection.selectionChanged -= ProcessSelection;
-			Selection.selectionChanged += ProcessSelection;
-
-			Debug.Log(name + " was initialised!");
 		}
-		#endregion
-
-		// Level Point object Tag
-		private string m_levelPointTag;
-		public string LevelPointTag => m_levelPointTag;
 
 		// container for Level Point GameObjects
 		private Transform m_pointContainer;
@@ -66,6 +52,143 @@ namespace CarRunner2D
 		// List of all Level Point Transforms
         private List<Transform> m_points;
 
+        [MenuItem("Level Creator/Create Debug Level Creator")]
+        private static void CreateDebugLevelCreator()
+        {
+            // check if a creator already exists
+            if (Instance != null)
+            {
+                Debug.LogError("Debug Level Creator already exists in the scene! If you want to reset it, use the " +
+                    "tools provided in the overlay.", Instance);
+                return;
+            }
+
+            // create the new creator
+            GameObject creator = new GameObject("Debug Level Creator");
+
+            // add the component
+            creator.AddComponent<DebugLevelCreator>();
+
+            // Register the creation in the undo system
+            Undo.RegisterCreatedObjectUndo(creator, "Create " + creator.name);
+
+            // select the object
+            Selection.activeObject = creator;
+        }
+
+        private void Awake()
+        {
+            Initialise();
+        }
+
+        [ContextMenu("Initialise")]
+        public void Initialise()
+        {
+			// create singleton
+			if (Instance != null && Instance != this)
+			{
+				DestroyImmediate(gameObject);
+				return;
+			}
+			else
+				Instance = this;
+
+            // enter the default mode
+			m_editMode = DebugLevelCreatorEditMode.Menu;
+
+            // check if display options are initialised
+            m_displayOptions ??= new DebugLevelCreatorDisplayOptions();
+
+            // setup points
+            if (m_points == null)
+                m_points = new List<Transform>();
+
+            // setup Point Container
+            if (!m_pointContainer)
+                CreatePointContainer();
+
+            // add the LevelPoint tag if it does not already exist in the project
+            AddTagToProject();
+
+            Debug.Log(name + " was initialised!");
+        }
+
+        private void OnEnable()
+        {
+			// enable overlay
+			m_overlay = new DebugLevelCreatorOverlay(this);
+			SceneView.AddOverlayToActiveView(m_overlay);
+
+			// add callbacks
+            Selection.selectionChanged += ProcessSelection;
+		}
+
+        private void OnDisable()
+        {
+            // disable overlay
+			SceneView.RemoveOverlayFromActiveView(m_overlay);
+			m_overlay = null;
+
+			// remove callbacks
+            Selection.selectionChanged -= ProcessSelection;
+        }
+
+        [ContextMenu("Add Level Point tag to the Tag Manager")]
+        public static void AddTagToProject()
+        {
+            // get the tag manager object from the project settings
+            SerializedObject tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+
+            // get the tags array
+            SerializedProperty tags = tagManager.FindProperty("tags");
+
+            // check each existing tag
+            for (int t = 0; t < tags.arraySize; t++)
+            {
+				Debug.Log(tags.GetArrayElementAtIndex(t).stringValue);
+				// if the level point tag already exists, then stop
+				if (tags.GetArrayElementAtIndex(t).stringValue == k_LevelPointTag)
+				{
+					Debug.LogWarning("The " + k_LevelPointTag + " tag already exists in this project.");
+					return;
+				}
+            }
+
+            // increase the size of the tag array
+            tags.arraySize++;
+
+            // get a reference to the newly added array element
+            SerializedProperty newTag = tags.GetArrayElementAtIndex(tags.arraySize - 1);
+
+            // set the value/tag name to the level point tag
+            newTag.stringValue = k_LevelPointTag;
+
+            // apply changes to the tag manager so the user cannot undo the change
+            tagManager.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private void CreatePointContainer()
+        {
+            // should only ever have one child, the point container, so delete it if it exists
+            if (transform.childCount != 0)
+            {
+                DestroyImmediate(transform.GetChild(0).gameObject);
+            }
+
+            m_pointContainer = new GameObject("Point Container").transform;
+            m_pointContainer.SetParent(transform);
+        }
+
+		public void SetEditMode(DebugLevelCreatorEditMode mode)
+		{
+			m_editMode = mode;
+		}
+
+        private void OnDestroy()
+        {
+            Selection.selectionChanged -= ProcessSelection;
+        }
+
         private void Update()
         {		
 			// if point container has been deleted
@@ -75,14 +198,7 @@ namespace CarRunner2D
             }
 			
 			if (m_pointContainer.childCount != m_points.Count)
-			{
-				// DEBUG
-				for (int p = 0; p < m_points.Count; p++)
-				{
-					if (m_points[p] == null)
-						Debug.Log("Point with Id " + p.ToString() + " was deleted!");
-				}
-				
+			{			
 				// remove any null points in the points list
 				// may have been deleted from the hierarchy
 				m_points.RemoveAll(point => point == null);
@@ -101,14 +217,31 @@ namespace CarRunner2D
 			if (selection.CompareTag("LevelPoint"))
 			{
 				m_selectedPoint = int.Parse(selection.name[selection.name.Length - 1].ToString());
-				Debug.Log("Selected point Id: " + m_selectedPoint.ToString() +
-				" at position: " + ((Vector2)m_points[m_selectedPoint].position).ToString());
 			}
 			else
 				m_selectedPoint = -1;
 		}
 
-		public void CreatePoint()
+		public void NewPoint_PushBack()
+		{
+			m_points.Add(NewPoint(m_points.Count));
+		}
+
+		public void NewPoint_AtSelected()
+		{
+			m_points.Insert(m_selectedPoint, NewPoint(m_selectedPoint));
+			RenamePoints(m_selectedPoint + 1);
+			OrderLevelPointTransforms();
+		}
+
+		public void NewPoint_AfterSelected()
+		{
+			m_points.Insert(m_selectedPoint + 1, NewPoint(m_selectedPoint + 1));
+			RenamePoints(m_selectedPoint + 1);
+            OrderLevelPointTransforms();
+        }
+
+        private Transform NewPoint(int pointId)
         {
 			// put the point in the centre of the screen
 			Camera sceneCamera = SceneView.lastActiveSceneView.camera;
@@ -116,21 +249,21 @@ namespace CarRunner2D
 			position.z = 0;
 
 			// create the new point in the scene
-			m_selectedPoint = m_points.Count;
+			m_selectedPoint = pointId;
 			GameObject newPoint = new GameObject("Point " + m_selectedPoint.ToString());
 			newPoint.transform.SetParent(m_pointContainer);
 			
 			// add point details
 			newPoint.transform.position = position;
-			newPoint.tag = m_levelPointTag.ToString();
+			newPoint.tag = k_LevelPointTag;
 
-			// add the new point to the list
-			m_points.Add(newPoint.transform);
+            // select the new point
+            Selection.activeGameObject = newPoint;
 
-			Debug.Log("Created point at " + position.ToString() + " with Id " + m_selectedPoint.ToString());
+			return newPoint.transform;
         }
 
-		public void DeletePoint()
+        public void DeletePoint()
         {
 			if (m_selectedPoint != -1)
 			{
@@ -151,19 +284,24 @@ namespace CarRunner2D
 				Debug.LogWarning("Tried to delete a point without one selected!");
         }
 
-		/// <summary>
-		/// 
-		/// </summary>
-		/// <param name="removedPointId">0 will rename all points</param>
-		private void RenamePoints(int removedPointId)
+		public void RenamePoints(int updateIndex = 0)
         {
 			// keep range to avoid errors
-			if (removedPointId < 0)
-				removedPointId = 0;
+			if (updateIndex < 0)
+				updateIndex = 0;
 
-			for (int t = removedPointId; t < m_points.Count; t++)
+			for (int t = updateIndex; t < m_points.Count; t++)
 			{
 				m_points[t].name = "Point " + t;
+			}
+		}
+
+		public void OrderLevelPointTransforms()
+		{
+			// set the sibling index on m_pointContainer to the point's index in m_points
+			for (int p = 0; p < m_points.Count; p++)
+			{
+				m_points[p].SetSiblingIndex(p);
 			}
 		}
 
@@ -180,47 +318,58 @@ namespace CarRunner2D
 
 			// deselect any point and reset the tools canvas
 			m_selectedPoint = -1;
-
-			Debug.Log("Deleted ALL points!");
         }
 
-		private void CreatePointContainer()
-        {
-			m_pointContainer = new GameObject("Point Container").transform;
-			m_pointContainer.SetParent(transform);
+		public void SelectNextPoint()
+		{
+			m_selectedPoint++;
+			if (m_selectedPoint == m_points.Count)
+				m_selectedPoint = 0;
+
+			Selection.activeGameObject = m_points[m_selectedPoint].gameObject;
 		}
 
-		public void SetNewLevelPointTag(string tag)
-        {
-			m_levelPointTag = tag;
-			Debug.Log("The Level Point GameObject tag was changed to " + tag + "!");
+		public void SelectPrevPoint()
+		{
+			m_selectedPoint--;
+			if (m_selectedPoint < 0)
+				m_selectedPoint = m_points.Count - 1;
 
-			// change the tags on all the existing level points
-			foreach (Transform t in m_pointContainer)
-				t.tag = tag;
-        }
+			Selection.activeGameObject = m_points[m_selectedPoint].gameObject;
+		}
 
-        private void OnDestroy()
-        {
-			Selection.selectionChanged -= ProcessSelection;
-        }
+		private void OnDrawGizmos()
+		{
+			// check if m_points has points to draw
+			if (m_points.Count == 0)
+				return;
 
-        private void OnDrawGizmos()
-        {
-			// scale the size of the gizmo with the 'zoom' level
+			// scale the size of the gizmos with the 'zoom' level
+			// also ensure the last active scene view object exists
 			Camera sceneCamera = SceneView.lastActiveSceneView.camera;
-			float discRadius = sceneCamera.orthographicSize * 0.1f;
-			
-			// draw the first point
-			if (m_points.Count != 0)
-				Handles.DrawSolidDisc(m_points[0].position, Vector3.back, discRadius);
+			if (!sceneCamera)
+				return;
+
+			// scale the radius of the discs
+			float discRadius = sceneCamera.orthographicSize * m_displayOptions.pointRadius;
 
 			// draw lines between the points
-			for (int p = 0; p < m_points.Count - 1; p++)
-            {
-				Gizmos.DrawLine(m_points[p].position, m_points[p + 1].position);
-				Handles.DrawSolidDisc(m_points[p + 1].position, Vector3.back, discRadius);
+			using (new Handles.DrawingScope(m_displayOptions.lineColour))
+			{
+				for (int p = 0; p < m_points.Count - 1; p++)
+				{
+					Handles.DrawLine(m_points[p].position, m_points[p + 1].position);
+				}
 			}
-		}
+
+			// draw all points on top of lines
+			using (new Handles.DrawingScope(m_displayOptions.pointColour))
+			{
+				for (int p = 0; p < m_points.Count; p++)
+				{
+					Handles.DrawSolidDisc(m_points[p].position, Vector3.back, discRadius);
+				}
+			}
+        }
     }
 }

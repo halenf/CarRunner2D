@@ -10,8 +10,6 @@ using UnityEditor;
 using UnityEditor.Overlays;
 using UnityEditor.SceneManagement;
 
-using EGL = UnityEditor.EditorGUILayout;
-
 namespace CarRunner2D
 {
 	[Overlay(typeof(EditorWindow), "Edit Tools")]

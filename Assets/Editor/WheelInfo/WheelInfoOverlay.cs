@@ -61,15 +61,27 @@ namespace CarRunner2D
         }
         private void Update()
         {
+            // if there is no game object selected
             if (Selection.activeGameObject == null)
                 isVisible = false;
+            // if the selected game object is the target's gameObject, the "if" will succeed
+            // if the overlay does not currently have a reference to the target, it will continue
             else if (Selection.activeGameObject == (target != null ? target.gameObject : null))
                 isVisible = true;
+            // try and get the component matching the target from the selection
+            // if it fails, the "if" will succeed
             else if (!Selection.activeGameObject.TryGetComponent(out target))
                 isVisible = false;
+            // if getting the target succeeded, it will end up here
             else
                 isVisible = true;
         }
+
+        /// <summary>
+        /// Disables the overlay when the Editor exits Edit or Play mode.
+        /// Stops an error caused by the overlay trying to target a selected wheel in a scene that no longer exists upon changing the Editor mode.
+        /// </summary>
+        /// <param name="state"></param>
         private void OnPlayModeStateChanged(PlayModeStateChange state)
         {
             switch (state)
