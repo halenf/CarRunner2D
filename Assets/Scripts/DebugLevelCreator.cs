@@ -133,7 +133,6 @@ namespace CarRunner2D
             Selection.selectionChanged -= ProcessSelection;
         }
 
-        [ContextMenu("Add Level Point tag to the Tag Manager")]
         public static void AddTagToProject()
         {
             // get the tag manager object from the project settings
