@@ -35,6 +35,9 @@ namespace CarRunner2D
 
         private void UpdateUI()
         {
+            if (!m_fuelFillBar)
+                return;
+
             m_fuelFillBar.fillAmount = m_currentFuelAmount / m_maxFuelAmount;
             m_fuelFillBar.color = m_fuelFillBarGradient.Evaluate(m_fuelFillBar.fillAmount);
         }

@@ -62,7 +62,7 @@ namespace CarRunner2D
 
         public bool IsTouchingGround()
 		{
-			if (Physics2D.OverlapCircle(new Vector2(transform.position.x, transform.position.y), m_circleCollider.radius, LayerMask.NameToLayer("Ground")))
+			if (Physics2D.OverlapCircle(new Vector2(transform.position.x, transform.position.y), m_circleCollider.radius, LayerMask.NameToLayer("Terrain")))
 				return true;
 			else return false;
 		}

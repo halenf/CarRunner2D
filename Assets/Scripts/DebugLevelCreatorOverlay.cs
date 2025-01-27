@@ -40,22 +40,24 @@ namespace CarRunner2D
                 case DebugLevelCreatorEditMode.Menu:
                     MenuGUI();
                     break;
-                case DebugLevelCreatorEditMode.EditPoints:
-                    EditPointsGUI();
+                case DebugLevelCreatorEditMode.CreateTerrain:
+                    CreateTerrainGUI();
+                    break;
+                case DebugLevelCreatorEditMode.EditTerrain:
+                    EditTerrainGUI();
                     BackButton(DebugLevelCreatorEditMode.Menu);
                     break;
                 case DebugLevelCreatorEditMode.DisplayOptions:
                     DisplayOptionsGUI();
                     BackButton(DebugLevelCreatorEditMode.Menu);
                     break;
-
             }
         }
 
         private void BackButton(DebugLevelCreatorEditMode targetMode)
         {
             GUIL.Space(k_Spacing);
-            if (GUIL.Button(new GUIC("Back", "Go back to the previous menu")))
+            if (GUIL.Button(new GUIC("Back", "Go back to the menu.")))
             {
                 target.SetEditMode(targetMode);
             }
@@ -72,7 +74,21 @@ namespace CarRunner2D
             }
         }
 
-        private void EditPointsGUI()
+        private void CreateTerrainGUI()
+        {
+            GUIL.Label(new GUIC("Creating Terrains"), EditorStyles.boldLabel);
+
+            if (!GUIL.Button(new GUIC("Create new Terrain")))
+            {
+                target.CreateTerrain();
+            }
+            if (!GUIL.Button(new GUIC("Load existing Terrain")))
+            {
+                
+            }
+        }
+
+        private void EditTerrainGUI()
         {
             // Display the currently selected Level Point's Id
             GUIL.Label(new GUIC("Selected Point Id:"), EditorStyles.boldLabel);
@@ -128,6 +144,15 @@ namespace CarRunner2D
             if (GUIL.Button(new GUIC("Reorder Point Objects", "If the order of the Level Point Game Objects in the Point Container is incorrect, press this. If the order is already correct, this will do nothing.")))
             {
                 target.OrderLevelPointTransforms();
+            }
+
+            // ground generation
+            GUIL.Space(k_Spacing);
+            GUIL.Label(new GUIC("Terrain Generation"), EditorStyles.boldLabel);
+
+            if (GUIL.Button(new GUIC("Generate Floor")))
+            {
+                target.GenerateFloor();
             }
         }
 

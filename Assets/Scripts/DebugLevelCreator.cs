@@ -6,16 +6,19 @@
 ///</summary>
 
 using UnityEngine;
+using UnityEngine.U2D;
 using UnityEditor;
 using System.Collections.Generic;
 using UnityEditor.Overlays;
+using System.Linq;
 
 namespace CarRunner2D
 {
     public enum DebugLevelCreatorEditMode
     {
         Menu,
-        EditPoints,
+        CreateTerrain,
+		EditTerrain,
         DisplayOptions
     }
 
@@ -25,13 +28,18 @@ namespace CarRunner2D
 	{
 		public static DebugLevelCreator Instance;
         public const string k_LevelPointTag = "LevelPoint";
+		public const string k_pointContainerTag = "PointContainer";
 
 		private Overlay m_overlay;
 
 		private DebugLevelCreatorEditMode m_editMode = DebugLevelCreatorEditMode.Menu;
 		public DebugLevelCreatorEditMode EditMode => m_editMode;
 
+		public SpriteShape defaultSpriteShape;
+		public float floorHeight = 8f;
+
 		private DebugLevelCreatorDisplayOptions m_displayOptions;
+
 		public DebugLevelCreatorDisplayOptions DisplayOptions
 		{
 			get
@@ -49,8 +57,15 @@ namespace CarRunner2D
 		private int m_selectedPoint;
 		public int SelectedPoint => m_selectedPoint;
 
+		// currently selected Terrain Id
+		private int m_selectedTerrain;
+		public int SelectedTerrain => m_selectedTerrain;
+
 		// List of all Level Point Transforms
         private List<Transform> m_points;
+
+		// list of all Terrain Objects
+		private List<TerrainData> m_terrainObjects;
 
         [MenuItem("Level Creator/Create Debug Level Creator")]
         private static void CreateDebugLevelCreator()
@@ -107,8 +122,9 @@ namespace CarRunner2D
             if (!m_pointContainer)
                 CreatePointContainer();
 
-            // add the LevelPoint tag if it does not already exist in the project
-            AddTagToProject();
+            // add the tags to the project if they do not already exist in the project
+            AddTagToProject(k_LevelPointTag);
+			AddTagToProject(k_pointContainerTag);
 
             Debug.Log(name + " was initialised!");
         }
@@ -133,7 +149,7 @@ namespace CarRunner2D
             Selection.selectionChanged -= ProcessSelection;
         }
 
-        public static void AddTagToProject()
+        public static void AddTagToProject(string tag)
         {
             // get the tag manager object from the project settings
             SerializedObject tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
@@ -146,9 +162,9 @@ namespace CarRunner2D
             {
 				Debug.Log(tags.GetArrayElementAtIndex(t).stringValue);
 				// if the level point tag already exists, then stop
-				if (tags.GetArrayElementAtIndex(t).stringValue == k_LevelPointTag)
+				if (tags.GetArrayElementAtIndex(t).stringValue == tag)
 				{
-					Debug.LogWarning("The " + k_LevelPointTag + " tag already exists in this project.");
+					Debug.LogWarning("The " + tag + " tag already exists in this project.");
 					return;
 				}
             }
@@ -160,7 +176,7 @@ namespace CarRunner2D
             SerializedProperty newTag = tags.GetArrayElementAtIndex(tags.arraySize - 1);
 
             // set the value/tag name to the level point tag
-            newTag.stringValue = k_LevelPointTag;
+            newTag.stringValue = tag;
 
             // apply changes to the tag manager so the user cannot undo the change
             tagManager.ApplyModifiedPropertiesWithoutUndo();
@@ -168,17 +184,23 @@ namespace CarRunner2D
 
         private void CreatePointContainer()
         {
-            // should only ever have one child, the point container, so delete it if it exists
-            if (transform.childCount != 0)
-            {
-                DestroyImmediate(transform.GetChild(0).gameObject);
-            }
+            // check if the point container exists
+			for (int t = 0; t < transform.childCount; t++)
+			{
+				// point container exists
+				if (transform.GetChild(t).CompareTag(k_pointContainerTag))
+				{
+					m_pointContainer = transform.GetChild(t);
+					return;
+				}
+			}
 
             m_pointContainer = new GameObject("Point Container").transform;
+			m_pointContainer.tag = k_pointContainerTag;
             m_pointContainer.SetParent(transform);
         }
 
-		public void SetEditMode(DebugLevelCreatorEditMode mode)
+        public void SetEditMode(DebugLevelCreatorEditMode mode)
 		{
 			m_editMode = mode;
 		}
@@ -188,6 +210,9 @@ namespace CarRunner2D
             Selection.selectionChanged -= ProcessSelection;
         }
 
+		/// <summary>
+		/// Mainly deletion checks in the hierarchy.
+		/// </summary>
         private void Update()
         {		
 			// if point container has been deleted
@@ -195,13 +220,45 @@ namespace CarRunner2D
             {
 				CreatePointContainer();
             }
-			
+
 			if (m_pointContainer.childCount != m_points.Count)
 			{			
 				// remove any null points in the points list
 				// may have been deleted from the hierarchy
 				m_points.RemoveAll(point => point == null);
 				RenamePoints(0);
+			}
+
+			// stop the addition of extra children to the creator
+			if (transform.childCount > 1)
+			{
+				bool foundPointContainer = false;
+				List<Transform> fakeChildren = new List<Transform>();
+				foreach (Transform t in transform)
+				{
+					// if the point container has been found,
+					// then every other child is fake
+					if (foundPointContainer)
+					{
+						fakeChildren.Add(t);
+						continue;
+					}
+					
+					// if the child is the point container,
+					// we can safely start deleting all other points
+					if (t == m_pointContainer)
+					{
+						foundPointContainer = true;
+						continue;
+					}
+					// check if the child is the point container before trying to destroy it
+					// if the point container has not yet been found
+					else
+						fakeChildren.Add(t);
+				}
+
+				for (int t = 0; t < fakeChildren.Count; t++)
+					DestroyImmediate(fakeChildren[t].gameObject);
 			}
         }
 
@@ -210,15 +267,19 @@ namespace CarRunner2D
 			if (!Selection.activeGameObject)
 				return;
 
-			// if the selection is a LevelPoint
-			// get the Id of the point from its name
-			GameObject selection = Selection.activeGameObject;
-			if (selection.CompareTag("LevelPoint"))
+            GameObject selection = Selection.activeGameObject;
+
+            // if the selection is a LevelPoint
+            // get the Id of the point from its name
+            if (selection.CompareTag("LevelPoint"))
 			{
 				m_selectedPoint = int.Parse(selection.name[selection.name.Length - 1].ToString());
+				m_editMode = DebugLevelCreatorEditMode.EditTerrain;
 			}
 			else
+			{
 				m_selectedPoint = -1;
+			}
 		}
 
 		public void NewPoint_PushBack()
@@ -319,6 +380,43 @@ namespace CarRunner2D
 			m_selectedPoint = -1;
         }
 
+		public void CreateTerrain()
+		{
+			m_selectedTerrain = GetFirstFreeTerrainId();
+			TerrainData newTerrain = new TerrainData(m_selectedTerrain);
+
+			m_editMode = DebugLevelCreatorEditMode.EditTerrain;
+		}
+
+		private int GetFirstFreeTerrainId()
+		{
+			int newTerrainId = 0;
+
+			while (true)
+			{
+				for (int t = 0; t < m_terrainObjects.Count; t++)
+				{
+					if (m_terrainObjects[t].terrainId == newTerrainId)
+					{
+						newTerrainId++;
+						break;
+					}
+				}
+
+				return newTerrainId;
+			}
+		}
+
+		public void SavePointsToTerrain()
+		{
+
+		}
+
+		public void SelectTerrain(int terrainId)
+		{
+
+		}
+
 		public void SelectNextPoint()
 		{
 			m_selectedPoint++;
@@ -336,6 +434,13 @@ namespace CarRunner2D
 
 			Selection.activeGameObject = m_points[m_selectedPoint].gameObject;
 		}
+
+		public void GenerateFloor()
+		{
+            Vector2[] points = m_points.Select(point => (Vector2)point.position).ToArray();
+
+			GameObject floor = GroundGenerator.GenerateFloorObject(points, defaultSpriteShape, floorHeight);
+        }
 
 		private void OnDrawGizmos()
 		{
