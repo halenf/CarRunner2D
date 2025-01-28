@@ -5,6 +5,7 @@
 ///
 ///</summary>
 
+using System.Linq;
 using UnityEngine;
 
 namespace CarRunner2D
@@ -12,13 +13,40 @@ namespace CarRunner2D
 	[System.Serializable]
 	public class TerrainData
 	{
-		public readonly int terrainId;
+		private string m_name;
+		public string Name
+		{
+			get { return m_name; }
+			set
+			{
+				if (value.All(c => char.IsLetterOrDigit(c) || char.IsWhiteSpace(c)))
+					m_name = value;
+				else
+					Debug.LogWarning("Terrain Data name can only contain letters, numbers, or spaces. Terrain Id: " + m_terrainId);
+			}
+		}
+		private int m_terrainId;
+		public int TerrainId
+		{
+			get { return m_terrainId; }
+			set
+			{
+				if (value < 0)
+				{
+					Debug.LogError("Id for a Terrain Data cannot be less than 0, as it represents an index. Terrain Id: " + m_terrainId);
+					return;
+				}
+
+				m_terrainId = value;
+			}
+		}
 		
 		private Vector2[] m_points;
 
-		public TerrainData(int terrainId)
+		public TerrainData(string name, int terrainId)
 		{
-			this.terrainId = terrainId;
+			m_name = name;
+			this.m_terrainId = terrainId;
 		}
 
 		public void SavePoints(Vector2[] points)

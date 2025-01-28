@@ -17,8 +17,9 @@ namespace CarRunner2D
     public enum DebugLevelCreatorEditMode
     {
         Menu,
-        CreateTerrain,
-		EditTerrain,
+		TerrainCreator,
+		TerrainLoader,
+        TerrainEditor,
         DisplayOptions
     }
 
@@ -123,8 +124,8 @@ namespace CarRunner2D
                 CreatePointContainer();
 
             // add the tags to the project if they do not already exist in the project
-            AddTagToProject(k_LevelPointTag);
-			AddTagToProject(k_pointContainerTag);
+            AddTagsToProject(new string[2] { k_LevelPointTag, k_pointContainerTag });
+			// AddLayersToProject(new string[1] { k_TerrainLayer });
 
             Debug.Log(name + " was initialised!");
         }
@@ -149,7 +150,7 @@ namespace CarRunner2D
             Selection.selectionChanged -= ProcessSelection;
         }
 
-        public static void AddTagToProject(string tag)
+        public static void AddTagsToProject(string[] tagsToAdd)
         {
             // get the tag manager object from the project settings
             SerializedObject tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
@@ -157,29 +158,38 @@ namespace CarRunner2D
             // get the tags array
             SerializedProperty tags = tagManager.FindProperty("tags");
 
-            // check each existing tag
-            for (int t = 0; t < tags.arraySize; t++)
-            {
-				Debug.Log(tags.GetArrayElementAtIndex(t).stringValue);
-				// if the level point tag already exists, then stop
-				if (tags.GetArrayElementAtIndex(t).stringValue == tag)
+			// add each string
+			foreach (string tag in tagsToAdd)
+			{
+				bool shouldAddTag = true;
+
+				// check each existing tag
+				for (int t = 0; t < tags.arraySize; t++)
 				{
-					Debug.LogWarning("The " + tag + " tag already exists in this project.");
-					return;
+					// if the level point tag already exists, then stop
+					if (tags.GetArrayElementAtIndex(t).stringValue == tag)
+					{
+						Debug.LogWarning("The " + tag + " tag already exists in this project.");
+						shouldAddTag = false;
+						break;
+					}
 				}
-            }
 
-            // increase the size of the tag array
-            tags.arraySize++;
+				if (!shouldAddTag)
+					continue;
 
-            // get a reference to the newly added array element
-            SerializedProperty newTag = tags.GetArrayElementAtIndex(tags.arraySize - 1);
+				// increase the size of the tag array
+				tags.arraySize++;
 
-            // set the value/tag name to the level point tag
-            newTag.stringValue = tag;
+				// get a reference to the newly added array element
+				SerializedProperty newTag = tags.GetArrayElementAtIndex(tags.arraySize - 1);
 
-            // apply changes to the tag manager so the user cannot undo the change
-            tagManager.ApplyModifiedPropertiesWithoutUndo();
+				// set the value/tag name to the level point tag
+				newTag.stringValue = tag;
+
+				// apply changes to the tag manager so the user cannot undo the change
+				tagManager.ApplyModifiedPropertiesWithoutUndo();
+			}
         }
 
         private void CreatePointContainer()
@@ -274,7 +284,7 @@ namespace CarRunner2D
             if (selection.CompareTag("LevelPoint"))
 			{
 				m_selectedPoint = int.Parse(selection.name[selection.name.Length - 1].ToString());
-				m_editMode = DebugLevelCreatorEditMode.EditTerrain;
+				m_editMode = DebugLevelCreatorEditMode.TerrainCreator;
 			}
 			else
 			{
@@ -380,12 +390,20 @@ namespace CarRunner2D
 			m_selectedPoint = -1;
         }
 
-		public void CreateTerrain()
+		public void CreateTerrain(string name)
 		{
 			m_selectedTerrain = GetFirstFreeTerrainId();
-			TerrainData newTerrain = new TerrainData(m_selectedTerrain);
+			TerrainData newTerrain = new TerrainData(name, m_selectedTerrain);
 
-			m_editMode = DebugLevelCreatorEditMode.EditTerrain;
+			// insert the terrain at the index matching its Id
+			m_terrainObjects.Insert(m_selectedTerrain, newTerrain);
+
+			m_editMode = DebugLevelCreatorEditMode.TerrainCreator;
+		}
+
+		public void LoadTerrainData()
+		{
+
 		}
 
 		private int GetFirstFreeTerrainId()
@@ -396,7 +414,7 @@ namespace CarRunner2D
 			{
 				for (int t = 0; t < m_terrainObjects.Count; t++)
 				{
-					if (m_terrainObjects[t].terrainId == newTerrainId)
+					if (m_terrainObjects[t].TerrainId == newTerrainId)
 					{
 						newTerrainId++;
 						break;

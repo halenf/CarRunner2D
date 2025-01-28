@@ -8,6 +8,7 @@
 using UnityEngine;
 using UnityEditor;
 using UnityEditor.Overlays;
+using System.Linq;
 
 namespace CarRunner2D
 {
@@ -25,6 +26,10 @@ namespace CarRunner2D
 
         private string[] m_editModeNames;
 
+        private bool m_goingBack = false;
+
+        private string m_terrainNameBuffer = "";
+
         public DebugLevelCreatorOverlay(DebugLevelCreator target)
         {
             this.target = target;
@@ -40,26 +45,61 @@ namespace CarRunner2D
                 case DebugLevelCreatorEditMode.Menu:
                     MenuGUI();
                     break;
-                case DebugLevelCreatorEditMode.CreateTerrain:
-                    CreateTerrainGUI();
+                case DebugLevelCreatorEditMode.TerrainCreator:
+                    TerrainCreatorGUI();
+                    ConfirmBackButton();
                     break;
-                case DebugLevelCreatorEditMode.EditTerrain:
-                    EditTerrainGUI();
-                    BackButton(DebugLevelCreatorEditMode.Menu);
+                case DebugLevelCreatorEditMode.TerrainLoader:
+                    TerrainLoaderGUI();
+                    BackButton();
+                    break;
+                case DebugLevelCreatorEditMode.TerrainEditor:
+                    TerrainEditorGUI();
+                    ConfirmBackButton();
                     break;
                 case DebugLevelCreatorEditMode.DisplayOptions:
                     DisplayOptionsGUI();
-                    BackButton(DebugLevelCreatorEditMode.Menu);
+                    BackButton();
                     break;
             }
         }
 
-        private void BackButton(DebugLevelCreatorEditMode targetMode)
+        private void BackButton()
         {
             GUIL.Space(k_Spacing);
             if (GUIL.Button(new GUIC("Back", "Go back to the menu.")))
             {
-                target.SetEditMode(targetMode);
+                target.SetEditMode(DebugLevelCreatorEditMode.Menu);
+            }
+        }
+
+        private void ConfirmBackButton()
+        {
+            GUIL.Space(k_Spacing);
+            // if the user has not yet pressed the back button
+            if (!m_goingBack)
+            {
+                if (GUIL.Button(new GUIC("Back", "Go back to the menu.")))
+                {
+                    m_goingBack = true;
+                    RefreshPopup();
+                }
+            }
+            // if the user has not yet confirmed they want to go back
+            else
+            {
+                GUIL.Label(new GUIC("Are you sure? Unsaved changes will be lost."));
+                EGUIL.BeginHorizontal();
+                if (GUIL.Button(new GUIC("Yes")))
+                {
+                    m_goingBack = false;
+                    target.SetEditMode(DebugLevelCreatorEditMode.Menu);
+                }
+                if (GUIL.Button(new GUIC("No")))
+                {
+                    m_goingBack = false;
+                }
+                EGUIL.EndHorizontal();
             }
         }
 
@@ -70,25 +110,63 @@ namespace CarRunner2D
             for (int m = 1; m < m_editModeNames.Length; m++)
             {
                 if (GUIL.Button(m_editModeNames[m]))
+                {
                     target.SetEditMode((DebugLevelCreatorEditMode)m);
+                }
             }
         }
 
-        private void CreateTerrainGUI()
+        private void TerrainCreatorGUI()
         {
-            GUIL.Label(new GUIC("Creating Terrains"), EditorStyles.boldLabel);
+            GUIL.Label(new GUIC("Create New Terrain"), EditorStyles.boldLabel);
 
-            if (!GUIL.Button(new GUIC("Create new Terrain")))
+            EGUIL.BeginHorizontal();
+            GUIL.Label(new GUIC("Terrain Name", "The name used to indentify this Terrain."));
+            string newName = GUIL.TextField(m_terrainNameBuffer);
+            if (newName != m_terrainNameBuffer)
+                m_terrainNameBuffer = newName;
+            EGUIL.EndHorizontal();
+
+            bool nameCanBeSaved = true;
+
+            // if name is empty, can't save it
+            if (m_terrainNameBuffer == string.Empty)
             {
-                target.CreateTerrain();
+                nameCanBeSaved = false;
             }
-            if (!GUIL.Button(new GUIC("Load existing Terrain")))
+            // if name is not empty, check the used characters are allowed
+            else
             {
-                
+                // keep length of name short
+                if (m_terrainNameBuffer.Length > 32)
+                {
+                    nameCanBeSaved = false;
+                    GUIL.Label(new GUIC("Name is too long!"));
+                }
+                // check for non letters, numbers, or white space
+                if (m_terrainNameBuffer.All(c => !char.IsLetterOrDigit(c) && !char.IsWhiteSpace(c)))
+                {
+                    nameCanBeSaved = false;
+                    GUIL.Label(new GUIC("Name can only contain letters, numbers, and spaces!"));
+                }
             }
+
+            // if name can't be saved, then show the create button greyed out
+            if (!nameCanBeSaved)
+                GUI.enabled = false;
+            if (GUIL.Button(new GUIC("Create")))
+            {
+                target.CreateTerrain(m_terrainNameBuffer);
+            }
+            GUI.enabled = true;
         }
 
-        private void EditTerrainGUI()
+        private void TerrainLoaderGUI()
+        {
+            GUIL.Label(new GUIC());
+        }
+
+        private void TerrainEditorGUI()
         {
             // Display the currently selected Level Point's Id
             GUIL.Label(new GUIC("Selected Point Id:"), EditorStyles.boldLabel);
