@@ -390,7 +390,7 @@ namespace CarRunner2D
 			m_selectedPoint = -1;
         }
 
-		public void CreateTerrain(string name)
+		public void CreateTerrainData(string name)
 		{
 			m_selectedTerrain = GetFirstFreeTerrainId();
 			TerrainData newTerrain = new TerrainData(name, m_selectedTerrain);
@@ -398,10 +398,10 @@ namespace CarRunner2D
 			// insert the terrain at the index matching its Id
 			m_terrainObjects.Insert(m_selectedTerrain, newTerrain);
 
-			m_editMode = DebugLevelCreatorEditMode.TerrainCreator;
-		}
+            m_editMode = DebugLevelCreatorEditMode.TerrainCreator;
+        }
 
-		public void LoadTerrainData()
+        public void LoadTerrainData()
 		{
 
 		}
@@ -453,11 +453,18 @@ namespace CarRunner2D
 			Selection.activeGameObject = m_points[m_selectedPoint].gameObject;
 		}
 
-		public void GenerateFloor()
+		public void GenerateFloorTerrain()
 		{
             Vector2[] points = m_points.Select(point => (Vector2)point.position).ToArray();
 
 			GameObject floor = GroundGenerator.GenerateFloorObject(points, defaultSpriteShape, floorHeight);
+        }
+
+		public void GenerateTerrain()
+		{
+			Vector2[] points = m_points.Select(point => (Vector2)point.position).ToArray();
+
+			GameObject terrain = GroundGenerator.GenerateGroundObject(points, defaultSpriteShape, m_selectedTerrain);
         }
 
 		private void OnDrawGizmos()

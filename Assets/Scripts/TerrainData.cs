@@ -55,5 +55,10 @@ namespace CarRunner2D
 		}
 
 		public Vector2[] GetPoints() { return m_points; }
+
+		public static void SaveTerrainData(TerrainData terrainData, string path)
+		{
+
+		}
 	}
 }

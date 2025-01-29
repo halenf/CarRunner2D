@@ -29,6 +29,7 @@ namespace CarRunner2D
         private bool m_goingBack = false;
 
         private string m_terrainNameBuffer = "";
+        private string m_terrainDatPath = "";
 
         public DebugLevelCreatorOverlay(DebugLevelCreator target)
         {
@@ -156,7 +157,7 @@ namespace CarRunner2D
                 GUI.enabled = false;
             if (GUIL.Button(new GUIC("Create")))
             {
-                target.CreateTerrain(m_terrainNameBuffer);
+                target.CreateTerrainData(m_terrainNameBuffer);
             }
             GUI.enabled = true;
         }
@@ -228,10 +229,17 @@ namespace CarRunner2D
             GUIL.Space(k_Spacing);
             GUIL.Label(new GUIC("Terrain Generation"), EditorStyles.boldLabel);
 
-            if (GUIL.Button(new GUIC("Generate Floor")))
+            if (GUIL.Button(new GUIC("Generate Terrain")))
             {
-                target.GenerateFloor();
+                if (target.SelectedTerrain == 0)
+                    target.GenerateFloorTerrain();
+                else
+                    target.GenerateTerrain();
             }
+
+            // saving and loading
+            GUIL.Space(k_Spacing);
+            GUIL.Label(new GUIC());
         }
 
         private void DisplayOptionsGUI()
