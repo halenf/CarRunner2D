@@ -28,8 +28,9 @@ namespace CarRunner2D
 
         private bool m_goingBack = false;
 
+        private bool m_willGenerateFloor = false;
+
         private string m_terrainNameBuffer = "";
-        private string m_terrainDatPath = "";
 
         public DebugLevelCreatorOverlay(DebugLevelCreator target)
         {
@@ -48,33 +49,33 @@ namespace CarRunner2D
                     break;
                 case DebugLevelCreatorEditMode.TerrainCreator:
                     TerrainCreatorGUI();
-                    ConfirmBackButton();
+                    ConfirmBackButton(DebugLevelCreatorEditMode.Menu);
                     break;
                 case DebugLevelCreatorEditMode.TerrainLoader:
                     TerrainLoaderGUI();
-                    BackButton();
+                    BackButton(DebugLevelCreatorEditMode.Menu);
                     break;
                 case DebugLevelCreatorEditMode.TerrainEditor:
                     TerrainEditorGUI();
-                    ConfirmBackButton();
+                    ConfirmBackButton(DebugLevelCreatorEditMode.TerrainLoader);
                     break;
                 case DebugLevelCreatorEditMode.DisplayOptions:
                     DisplayOptionsGUI();
-                    BackButton();
+                    BackButton(DebugLevelCreatorEditMode.Menu);
                     break;
             }
         }
 
-        private void BackButton()
+        private void BackButton(DebugLevelCreatorEditMode targetMode)
         {
             GUIL.Space(k_Spacing);
             if (GUIL.Button(new GUIC("Back", "Go back to the menu.")))
             {
-                target.SetEditMode(DebugLevelCreatorEditMode.Menu);
+                target.SetEditMode(targetMode);
             }
         }
 
-        private void ConfirmBackButton()
+        private void ConfirmBackButton(DebugLevelCreatorEditMode targetMode)
         {
             GUIL.Space(k_Spacing);
             // if the user has not yet pressed the back button
@@ -94,7 +95,7 @@ namespace CarRunner2D
                 if (GUIL.Button(new GUIC("Yes")))
                 {
                     m_goingBack = false;
-                    target.SetEditMode(DebugLevelCreatorEditMode.Menu);
+                    target.SetEditMode(targetMode);
                 }
                 if (GUIL.Button(new GUIC("No")))
                 {
@@ -164,11 +165,58 @@ namespace CarRunner2D
 
         private void TerrainLoaderGUI()
         {
-            GUIL.Label(new GUIC());
+            GUIL.Label(new GUIC("Terrain Loader"), EditorStyles.boldLabel);
+
+            EGUIL.BeginHorizontal();
+            string terrainName = GUIL.TextField(m_terrainNameBuffer);
+            if (terrainName != m_terrainNameBuffer)
+            {
+                m_terrainNameBuffer = terrainName;
+            }
+            if (GUIL.Button(new GUIC("Load")))
+            {
+                if (target.LoadTerrainData(terrainName + ".cter"))
+                    target.SetEditMode(DebugLevelCreatorEditMode.TerrainEditor);
+            }
+            EGUIL.EndHorizontal();
+
+            if (GUIL.Button(new GUIC("Load ALL Existing Terrains")))
+            {
+                if (target.LoadAllTerrainData())
+                    target.SetEditMode(DebugLevelCreatorEditMode.TerrainEditor);
+            }
+
+            if (GUIL.Button(new GUIC("Unload all Currently Loaded Terrains")))
+            {
+                target.UnloadAllTerrainData();
+            }
         }
 
         private void TerrainEditorGUI()
         {
+            // show the selected terrain
+            if (target.SelectedTerrain == -1)
+            {
+                GUIL.Label(new GUIC("Create or Load a Terrain First!"), EditorStyles.boldLabel);
+                return;
+            }
+
+            GUIL.Label(new GUIC("Selected Terrain:"), EditorStyles.boldLabel);
+
+            EGUIL.BeginHorizontal();
+            if (GUIL.Button(new GUIC("<", "Select the previous loaded Terrain")))
+            {
+                target.SelectPrevTerrain();
+            }
+            GUIL.FlexibleSpace();
+            GUIL.Label(new GUIC(target.SelectedTerrainName));
+            GUIL.FlexibleSpace();
+            if (GUIL.Button(new GUIC(">", "Select the next loaded Terrain")))
+            {
+                target.SelectNextTerrain();
+            }
+            EGUIL.EndHorizontal();
+
             // Display the currently selected Level Point's Id
             GUIL.Label(new GUIC("Selected Point Id:"), EditorStyles.boldLabel);
 
@@ -193,7 +241,7 @@ namespace CarRunner2D
 
             // level point editing
             GUIL.Space(k_Spacing);
-            GUIL.Label(new GUIC("Editing Level Points"), EditorStyles.boldLabel); 
+            GUIL.Label(new GUIC("Edit Level"), EditorStyles.boldLabel); 
 
             // create buttons
             if (GUIL.Button(new GUIC("Add New Point", "Adds a new Level Point to the end of the list.")))
@@ -227,19 +275,25 @@ namespace CarRunner2D
 
             // ground generation
             GUIL.Space(k_Spacing);
-            GUIL.Label(new GUIC("Terrain Generation"), EditorStyles.boldLabel);
-
+            GUIL.Label(new GUIC("Terrain Data"), EditorStyles.boldLabel);
+            
+            EGUIL.BeginHorizontal();
             if (GUIL.Button(new GUIC("Generate Terrain")))
             {
-                if (target.SelectedTerrain == 0)
+                if (m_willGenerateFloor)
                     target.GenerateFloorTerrain();
                 else
                     target.GenerateTerrain();
             }
+            bool willGenerateFloor = GUIL.Toggle(m_willGenerateFloor, new GUIC("Generate As Floor"));
+            if (willGenerateFloor != m_willGenerateFloor)
+                m_willGenerateFloor = willGenerateFloor;
+            EGUIL.EndHorizontal();
 
-            // saving and loading
-            GUIL.Space(k_Spacing);
-            GUIL.Label(new GUIC());
+            if (GUIL.Button(new GUIC("Save Terrain to File")))
+            {
+                target.SaveCurrentTerrainData();
+            }
         }
 
         private void DisplayOptionsGUI()

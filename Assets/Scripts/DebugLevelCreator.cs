@@ -8,9 +8,11 @@
 using UnityEngine;
 using UnityEngine.U2D;
 using UnityEditor;
-using System.Collections.Generic;
 using UnityEditor.Overlays;
+
+using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 
 namespace CarRunner2D
 {
@@ -28,8 +30,11 @@ namespace CarRunner2D
 	public class DebugLevelCreator : MonoBehaviour
 	{
 		public static DebugLevelCreator Instance;
+		public const string k_DebugLevelCreatorName = "Debug Level Creator";
         public const string k_LevelPointTag = "LevelPoint";
 		public const string k_pointContainerTag = "PointContainer";
+
+		public const string TerrainDataSavePath = "Assets/TerrainData";
 
 		private Overlay m_overlay;
 
@@ -61,12 +66,13 @@ namespace CarRunner2D
 		// currently selected Terrain Id
 		private int m_selectedTerrain;
 		public int SelectedTerrain => m_selectedTerrain;
+		public string SelectedTerrainName => m_terrains[m_selectedTerrain].Name;
 
 		// List of all Level Point Transforms
         private List<Transform> m_points;
 
 		// list of all Terrain Objects
-		private List<TerrainData> m_terrainObjects;
+		private List<TerrainData> m_terrains;
 
         [MenuItem("Level Creator/Create Debug Level Creator")]
         private static void CreateDebugLevelCreator()
@@ -80,7 +86,7 @@ namespace CarRunner2D
             }
 
             // create the new creator
-            GameObject creator = new GameObject("Debug Level Creator");
+            GameObject creator = new GameObject(k_DebugLevelCreatorName);
 
             // add the component
             creator.AddComponent<DebugLevelCreator>();
@@ -119,13 +125,16 @@ namespace CarRunner2D
             if (m_points == null)
                 m_points = new List<Transform>();
 
-            // setup Point Container
-            if (!m_pointContainer)
-                CreatePointContainer();
+			// setup terrains
+			m_terrains.Clear();
 
             // add the tags to the project if they do not already exist in the project
             AddTagsToProject(new string[2] { k_LevelPointTag, k_pointContainerTag });
-			// AddLayersToProject(new string[1] { k_TerrainLayer });
+            // AddLayersToProject(new string[1] { k_TerrainLayer });
+
+            // setup Point Container
+            if (!m_pointContainer)
+                CreatePointContainer();
 
             Debug.Log(name + " was initialised!");
         }
@@ -284,7 +293,7 @@ namespace CarRunner2D
             if (selection.CompareTag("LevelPoint"))
 			{
 				m_selectedPoint = int.Parse(selection.name[selection.name.Length - 1].ToString());
-				m_editMode = DebugLevelCreatorEditMode.TerrainCreator;
+				m_editMode = DebugLevelCreatorEditMode.TerrainEditor;
 			}
 			else
 			{
@@ -295,6 +304,11 @@ namespace CarRunner2D
 		public void NewPoint_PushBack()
 		{
 			m_points.Add(NewPoint(m_points.Count));
+		}
+
+		private void NewPoint_PushBack(Vector2 position)
+		{
+			m_points.Add(NewPoint(m_points.Count, position));
 		}
 
 		public void NewPoint_AtSelected()
@@ -331,6 +345,24 @@ namespace CarRunner2D
             Selection.activeGameObject = newPoint;
 
 			return newPoint.transform;
+        }
+
+		private Transform NewPoint(int pointId, Vector2 position)
+		{
+            // put the point in the centre of the screen
+            Camera sceneCamera = SceneView.lastActiveSceneView.camera;
+            Vector3 _position = new Vector3(position.x, position.y);
+
+            // create the new point in the scene
+            m_selectedPoint = pointId;
+            GameObject newPoint = new GameObject("Point " + m_selectedPoint.ToString());
+            newPoint.transform.SetParent(m_pointContainer);
+
+            // add point details
+            newPoint.transform.position = _position;
+            newPoint.tag = k_LevelPointTag;
+
+            return newPoint.transform;
         }
 
         public void DeletePoint()
@@ -392,47 +424,102 @@ namespace CarRunner2D
 
 		public void CreateTerrainData(string name)
 		{
-			m_selectedTerrain = GetFirstFreeTerrainId();
-			TerrainData newTerrain = new TerrainData(name, m_selectedTerrain);
+			m_selectedTerrain = m_terrains.Count;
+			TerrainData newTerrain = new TerrainData(name, new Vector2[0]);
 
 			// insert the terrain at the index matching its Id
-			m_terrainObjects.Insert(m_selectedTerrain, newTerrain);
+			m_terrains.Add(newTerrain);
+
+			Debug.Log("Created a new Terrain with name " + name + "!");
 
             m_editMode = DebugLevelCreatorEditMode.TerrainCreator;
         }
 
-        public void LoadTerrainData()
+		public void SaveCurrentTerrainData()
 		{
+			Vector2[] points = m_points.Select(point => (Vector2)point.position).ToArray();
+			m_terrains[m_selectedTerrain].Points = points;
 
+			TerrainSaveLoad.SerialiseTerrainData(m_terrains[m_selectedTerrain]);
+			AssetDatabase.Refresh();
 		}
 
-		private int GetFirstFreeTerrainId()
+		public bool LoadTerrainData(string fileName, bool loadingMultiple = false)
 		{
-			int newTerrainId = 0;
+            string terrainName = fileName.Substring(0, fileName.Length - 5);
 
-			while (true)
+            foreach (TerrainData terrain in m_terrains)
 			{
-				for (int t = 0; t < m_terrainObjects.Count; t++)
+				if (terrainName == terrain.Name)
 				{
-					if (m_terrainObjects[t].TerrainId == newTerrainId)
-					{
-						newTerrainId++;
-						break;
-					}
+					Debug.LogWarning("Terrain with name " + terrainName + " is already loaded!");
+					return false;
 				}
-
-				return newTerrainId;
 			}
+
+			m_terrains.Add(TerrainSaveLoad.LoadSerialisedTerrainData(fileName));
+
+			if (!loadingMultiple)
+                SelectTerrain(m_terrains.Count - 1);
+
+            return true;
 		}
 
-		public void SavePointsToTerrain()
+		public bool LoadAllTerrainData()
 		{
+			bool loadedATerrain = false;
+			string[] terrainFiles = Directory.GetFiles(TerrainDataSavePath, "*.cter", SearchOption.TopDirectoryOnly);
+			foreach (string terrain in terrainFiles)
+			{
+				if (LoadTerrainData(Path.GetFileName(terrain), true))
+					loadedATerrain = true;
+			}
 
+			if (loadedATerrain)
+			{
+				SelectTerrain(m_terrains.Count - 1);
+			}
+
+			return loadedATerrain;
+		}
+
+		public void UnloadAllTerrainData()
+		{
+			m_terrains.Clear();
+			ClearPoints();
+			m_selectedTerrain = -1;
 		}
 
 		public void SelectTerrain(int terrainId)
 		{
+			m_selectedTerrain = terrainId;
 
+			// delete all the existing points and replace them with the new terrain's points
+			ClearPoints();
+
+			TerrainData terrain = m_terrains[m_selectedTerrain];
+			foreach (Vector2 point in terrain.Points)
+			{
+				NewPoint_PushBack(point);
+			}
+		}
+
+		public void SelectNextTerrain()
+		{
+			m_selectedTerrain++;
+			if (m_selectedTerrain == m_terrains.Count)
+				m_selectedTerrain = 0;
+
+			SelectTerrain(m_selectedTerrain);
+		}
+
+		public void SelectPrevTerrain()
+		{
+			m_selectedTerrain--;
+			if (m_selectedTerrain < 0)
+				m_selectedTerrain = m_terrains.Count - 1;
+
+			SelectTerrain(m_selectedTerrain);
 		}
 
 		public void SelectNextPoint()
