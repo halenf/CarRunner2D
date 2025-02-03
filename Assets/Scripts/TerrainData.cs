@@ -42,5 +42,6 @@ namespace CarRunner2D
 			}
 		}
 
+		public int NumberOfPoints => m_points.Length;
 	}
 }

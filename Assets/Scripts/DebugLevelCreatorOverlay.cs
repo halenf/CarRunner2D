@@ -28,7 +28,9 @@ namespace CarRunner2D
 
         private bool m_goingBack = false;
 
-        private bool m_willGenerateFloor = false;
+        private bool m_willGenerateFloor = true;
+
+        private bool m_nameCanBeSaved = false;
 
         private string m_terrainNameBuffer = "";
 
@@ -66,6 +68,7 @@ namespace CarRunner2D
             }
         }
 
+        #region QuickGUI
         private void BackButton(DebugLevelCreatorEditMode targetMode)
         {
             GUIL.Space(k_Spacing);
@@ -104,6 +107,7 @@ namespace CarRunner2D
                 EGUIL.EndHorizontal();
             }
         }
+        #endregion
 
         private void MenuGUI()
         {
@@ -125,42 +129,46 @@ namespace CarRunner2D
             EGUIL.BeginHorizontal();
             GUIL.Label(new GUIC("Terrain Name", "The name used to indentify this Terrain."));
             string newName = GUIL.TextField(m_terrainNameBuffer);
+
+            // on field changed, ensure new value is valid
             if (newName != m_terrainNameBuffer)
+            {
                 m_terrainNameBuffer = newName;
-            EGUIL.EndHorizontal();
 
-            bool nameCanBeSaved = true;
-
-            // if name is empty, can't save it
-            if (m_terrainNameBuffer == string.Empty)
-            {
-                nameCanBeSaved = false;
-            }
-            // if name is not empty, check the used characters are allowed
-            else
-            {
-                // keep length of name short
-                if (m_terrainNameBuffer.Length > 32)
+                // check if its empty
+                // if its not empty, check values are okay for file
+                if (m_terrainNameBuffer == string.Empty)
                 {
-                    nameCanBeSaved = false;
-                    GUIL.Label(new GUIC("Name is too long!"));
+                    m_nameCanBeSaved = false;
+                }
+                // keep length of name short
+                else if (m_terrainNameBuffer.Length > 32)
+                {
+                    m_nameCanBeSaved = false;
                 }
                 // check for non letters, numbers, or white space
-                if (m_terrainNameBuffer.All(c => !char.IsLetterOrDigit(c) && !char.IsWhiteSpace(c)))
+                else if (!m_terrainNameBuffer.All(char.IsLetterOrDigit))
                 {
-                    nameCanBeSaved = false;
-                    GUIL.Label(new GUIC("Name can only contain letters, numbers, and spaces!"));
+                    m_nameCanBeSaved = false;
                 }
+                else
+                    m_nameCanBeSaved = true;
             }
+            EGUIL.EndHorizontal();
 
             // if name can't be saved, then show the create button greyed out
-            if (!nameCanBeSaved)
+            if (!m_nameCanBeSaved)
+            {
+                GUIL.Label(new GUIC("Invalid name! Must not be longer than 32 characters\nand must only contain letters and/or numbers."));
                 GUI.enabled = false;
+            }
             if (GUIL.Button(new GUIC("Create")))
             {
                 target.CreateTerrainData(m_terrainNameBuffer);
+                target.SetEditMode(DebugLevelCreatorEditMode.TerrainEditor);
             }
-            GUI.enabled = true;
+            if (!GUI.enabled)
+                GUI.enabled = true;
         }
 
         private void TerrainLoaderGUI()
@@ -177,16 +185,20 @@ namespace CarRunner2D
             {
                 if (target.LoadTerrainData(terrainName + ".cter"))
                     target.SetEditMode(DebugLevelCreatorEditMode.TerrainEditor);
+                else
+                    Debug.LogWarning("A Terrain with the name " + terrainName + " does not exist in this project!");
             }
             EGUIL.EndHorizontal();
 
-            if (GUIL.Button(new GUIC("Load ALL Existing Terrains")))
+            if (GUIL.Button(new GUIC("Load ALL Existing Terrains", "Load all the Terrains in the TerrainData folder.")))
             {
                 if (target.LoadAllTerrainData())
                     target.SetEditMode(DebugLevelCreatorEditMode.TerrainEditor);
+                else
+                    Debug.LogWarning("No Terrains exist in this project. Go make some!");
             }
 
-            if (GUIL.Button(new GUIC("Unload all Currently Loaded Terrains")))
+            if (GUIL.Button(new GUIC("Unload all Currently Loaded Terrains", "Unload all the loaded Terrains from the Debug Level Creator.")))
             {
                 target.UnloadAllTerrainData();
             }
@@ -223,9 +235,12 @@ namespace CarRunner2D
             // add controls to change the selected point from the Overlay
             // and display null if there is no selected point
             EGUIL.BeginHorizontal();
-            if (GUIL.Button(new GUIC("<", "Select the previous Level Point")))
+            if (target.NumberOfPoints > 1)
             {
-                target.SelectPrevPoint();
+                if (GUIL.Button(new GUIC("<", "Select the previous Level Point")))
+                {
+                    target.SelectPrevPoint();
+                }
             }
             GUIL.FlexibleSpace();
             if (target.SelectedPoint == -1)
@@ -233,9 +248,12 @@ namespace CarRunner2D
             else
                 GUIL.Label(new GUIC(target.SelectedPoint.ToString()));
             GUIL.FlexibleSpace();
-            if (GUIL.Button(new GUIC(">", "Select the next Level Point")))
+            if (target.NumberOfPoints > 1)
             {
-                target.SelectNextPoint();
+                if (GUIL.Button(new GUIC(">", "Select the next Level Point")))
+                {
+                    target.SelectNextPoint();
+                }
             }
             EGUIL.EndHorizontal();
 
@@ -244,7 +262,7 @@ namespace CarRunner2D
             GUIL.Label(new GUIC("Edit Level"), EditorStyles.boldLabel); 
 
             // create buttons
-            if (GUIL.Button(new GUIC("Add New Point", "Adds a new Level Point to the end of the list.")))
+            if (GUIL.Button(new GUIC("Add New Point","Adds a new Level Point to the end of the list.")))
             {
                 target.NewPoint_PushBack();
             }
@@ -287,7 +305,10 @@ namespace CarRunner2D
             }
             bool willGenerateFloor = GUIL.Toggle(m_willGenerateFloor, new GUIC("Generate As Floor"));
             if (willGenerateFloor != m_willGenerateFloor)
+            {
+                target.SetDrawingMode(willGenerateFloor);
                 m_willGenerateFloor = willGenerateFloor;
+            }
             EGUIL.EndHorizontal();
 
             if (GUIL.Button(new GUIC("Save Terrain to File")))

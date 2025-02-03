@@ -8,7 +8,6 @@
 using System.IO;
 using System.Runtime.Serialization.Formatters.Binary;
 using UnityEngine;
-using UnityEditor;
 
 namespace CarRunner2D
 {
@@ -40,7 +39,7 @@ namespace CarRunner2D
             SaveData data = new SaveData(terrain.Name, terrain.Points);
             
             BinaryFormatter bin = new BinaryFormatter();
-            FileStream stream = new FileStream(DebugLevelCreator.TerrainDataSavePath + "/" + terrain.Name + ".cter", FileMode.Create);
+            FileStream stream = new FileStream(DebugLevelCreator.k_TerrainDataSavePath + "/" + terrain.Name + ".cter", FileMode.Create);
 
             bin.Serialize(stream, data);
             stream.Close();
@@ -50,7 +49,7 @@ namespace CarRunner2D
 
         public static TerrainData LoadSerialisedTerrainData(string fileName)
         {
-            string saveDirectory = DebugLevelCreator.TerrainDataSavePath;
+            string saveDirectory = DebugLevelCreator.k_TerrainDataSavePath;
             string savePath = saveDirectory + "/" + fileName;
             if (File.Exists(savePath))
             {
