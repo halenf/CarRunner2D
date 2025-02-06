@@ -55,7 +55,6 @@ namespace CarRunner2D
 		public DebugLevelCreatorEditMode EditMode => m_editMode;
 
         // DEBUG
-        public Texture m_pointTexture;
 		public SpriteShape defaultSpriteShape;
 		public float floorHeight = 8f;
 		

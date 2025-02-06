@@ -1,2 +1,13 @@
 fileFormatVersion: 2
 guid: 40e529cd1ea343649a8390ce57f2fdbe
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - m_pointTexture: {instanceID: 0}
+  - defaultSpriteShape: {fileID: 11400000, guid: b87383d1da231454caecee6835766de7, type: 2}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
